@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Weather App</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Axios for API requests -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.1.2/dist/axios.min.js"></script>
+    <style>
+        /* Custom styles to complement Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* New Apple-inspired color palette */
+        .weather-app-container {
+            background: linear-gradient(180deg, #4A90E2 0%, #81C7F5 100%);
+        }
+        .weather-card {
+            background-color: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.5);
+        }
+        /* Styles for the AI Advice Modal */
+        #advice-modal-content h3 {
+           font-size: 1.25rem; /* text-xl */
+           font-weight: 600; /* font-semibold */
+           margin-bottom: 0.5rem; /* mb-2 */
+           color: #EBF8FF; /* A very light, crisp blue */
+        }
+        #advice-modal-content ul {
+            list-style-position: inside;
+            margin-bottom: 1rem; /* mb-4 */
+            padding-left: 0.5rem; /* pl-2 */
+        }
+        #advice-modal-content li {
+            margin-bottom: 0.25rem; /* mb-1 */
+        }
+        /* Simple spinner animation */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="weather-app-container min-h-screen flex items-center justify-center p-4">
+
+    <div class="weather-card w-full max-w-3xl rounded-3xl p-6 sm:p-8 text-white shadow-2xl">
+        <!-- Header: Search Form -->
+        <header class="mb-8">
+            <form id="search-form" class="flex flex-col sm:flex-row gap-4">
+                <input
+                    type="search"
+                    placeholder="Enter a city..."
+                    required
+                    id="search-input"
+                    class="search-input w-full flex-grow px-5 py-3 rounded-full bg-white/10 placeholder-white/70 text-white border-0 transition duration-300"
+                />
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-full transition duration-300 shadow-lg">
+                    Search
+                </button>
+            </form>
+        </header>
+
+        <main>
+            <!-- Main Content: Current Weather -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-6">
+                <!-- City and Time Details -->
+                <div class="text-center md:text-left">
+                    <h1 class="text-4xl sm:text-5xl font-bold" id="current-city">Paris</h1>
+                    <p class="text-lg text-white/80" id="current-details">
+                        <span id="current-date"></span>
+                    </p>
+                </div>
+                <!-- Temperature Details -->
+                <div class="flex items-center gap-4 text-center md:text-right">
+                    <img src="https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" alt="Weather icon" id="current-temperature-icon" class="w-24 h-24 sm:w-28 sm:h-28">
+                    <div>
+                        <div class="text-6xl sm:text-7xl font-bold">
+                            <span id="current-temperature">24</span><span class="text-3xl align-top">°C</span>
+                        </div>
+                         <div class="text-sm">
+                            <span id="weather-description">Clear Sky</span> |
+                            Humidity: <strong id="humidity">87%</strong>,
+                            Wind: <strong id="wind-speed">7.2km/h</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <!-- AI Advice Button -->
+            <div class="text-center mb-10">
+                <button id="advice-button" class="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-3 rounded-full transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Get Weather Advice ✨
+                </button>
+            </div>
+
+
+            <!-- 5-Day Forecast -->
+            <div id="forecast" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
+                <!-- Forecast items will be injected here by JavaScript -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-8 pt-6 border-t border-white/20 text-center text-sm text-white/60">
+            <p>
+                This project was coded by
+                <a href="https://web.facebook.com/profile.php?id=61573253288425" target="_blank" class="font-semibold underline hover:text-white">Skotch Metabytes</a>, is
+                <a href="https://github.com/ChefFelicia/SheCodes-Felicia" target="_blank" class="font-semibold underline hover:text-white"> open-sourced on GitHub</a> and
+                <a href="https://app.netlify.com/teams/cheffelicia/overview" target="_blank" class="font-semibold underline hover:text-white">hosted on Netlify</a>.
+            </p>
+        </footer>
+    </div>
+
+    <!-- AI Advice Modal -->
+    <div id="advice-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="weather-card w-full max-w-md rounded-2xl p-6 relative">
+            <button id="close-modal-button" class="absolute top-4 right-4 text-white/70 hover:text-white text-2xl">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-center">AI Weather Advice</h2>
+            <div id="advice-loader" class="hidden w-10 h-10 rounded-full spinner mx-auto"></div>
+            <div id="advice-modal-content" class="text-white/90"></div>
+        </div>
+    </div>
+
+
+    <script>
+        const weatherApiKey = "b2a5adcct04b33178913oc335f405433";
+        const searchForm = document.querySelector("#search-form");
+        const adviceButton = document.querySelector("#advice-button");
+        const adviceModal = document.querySelector("#advice-modal");
+        const closeModalButton = document.querySelector("#close-modal-button");
+
+        let currentWeatherData = null;
+
+        function formatDate(date) {
+            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const day = days[date.getDay()];
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day} ${hours}:${minutes}`;
+        }
+
+        function updateCurrentWeather(response) {
+            currentWeatherData = response.data;
+            const data = currentWeatherData;
+
+            document.querySelector("#current-city").innerHTML = data.city;
+            document.querySelector("#current-temperature").innerHTML = Math.round(data.temperature.current);
+            document.querySelector("#weather-description").innerHTML = data.condition.description;
+            document.querySelector("#humidity").innerHTML = `${data.temperature.humidity}%`;
+            document.querySelector("#wind-speed").innerHTML = `${data.wind.speed}km/h`;
+            document.querySelector("#current-date").innerHTML = formatDate(new Date(data.time * 1000));
+            const iconElement = document.querySelector("#current-temperature-icon");
+            iconElement.src = data.condition.icon_url;
+            iconElement.alt = data.condition.description;
+
+            adviceButton.disabled = false;
+        }
+
+        function formatForecastDay(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            return days[date.getDay()];
+        }
+        
+        function displayForecast(response) {
+            let forecastHtml = "";
+            response.data.daily.slice(1, 6).forEach(day => {
+                forecastHtml += `
+                    <div class="flex flex-col items-center p-3 rounded-2xl bg-white/10">
+                        <div class="font-semibold">${formatForecastDay(day.time)}</div>
+                        <img src="${day.condition.icon_url}" alt="${day.condition.description}" class="w-16 h-16 my-2">
+                        <div class="font-semibold">
+                            <span class="font-bold">${Math.round(day.temperature.maximum)}°</span>
+                            <span class="opacity-70">${Math.round(day.temperature.minimum)}°</span>
+                        </div>
+                    </div>
+                `;
+            });
+            document.querySelector("#forecast").innerHTML = forecastHtml;
+        }
+        
+        function searchCity(city) {
+            adviceButton.disabled = true;
+            const weatherApiUrl = `https://api.shecodes.io/weather/v1/current?query=${city}&key=${weatherApiKey}&units=metric`;
+            axios.get(weatherApiUrl).then(updateCurrentWeather).catch(handleApiError);
+
+            const forecastApiUrl = `https://api.shecodes.io/weather/v1/forecast?query=${city}&key=${weatherApiKey}&units=metric`;
+            axios.get(forecastApiUrl).then(displayForecast).catch(handleApiError);
+        }
+
+        function handleSearchSubmit(event) {
+            event.preventDefault();
+            const searchInputElement = document.querySelector("#search-input");
+            const city = searchInputElement.value.trim();
+            if (city) {
+                searchCity(city);
+            }
+        }
+
+        function handleApiError(error) {
+            console.error("Weather API Error:", error);
+            const content = document.querySelector("#advice-modal-content");
+            content.innerHTML = `<p class="text-red-400 text-center">Sorry, we couldn't find weather for that city. Please check the spelling and try again.</p>`;
+            document.querySelector("#advice-loader").classList.add("hidden");
+            adviceModal.classList.remove("hidden");
+        }
+
+        async function getWeatherAdvice() {
+            if (!currentWeatherData) return;
+
+            const adviceContent = document.querySelector("#advice-modal-content");
+            const adviceLoader = document.querySelector("#advice-loader");
+
+            adviceModal.classList.remove("hidden");
+            adviceLoader.classList.remove("hidden");
+            adviceContent.innerHTML = "";
+
+            const { city, temperature, condition }  = currentWeatherData;
+            const userQuery = `Based on the weather in ${city}, which is currently ${Math.round(temperature.current)}°C with ${condition.description}, please provide:
+            1. A short, friendly suggestion on what to wear.
+            2. Two activity suggestions (one indoor, one outdoor if the weather is suitable).`;
+            
+            // This is the new, secure way to call the API via a Netlify Function
+            const functionUrl = `/.netlify/functions/get-advice`;
+
+            try {
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // Send the query to our serverless function
+                    body: JSON.stringify({ query: userQuery })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.advice) {
+                    adviceContent.innerHTML = result.advice;
+                } else {
+                    throw new Error("Invalid response structure from the advice function.");
+                }
+            } catch (error) {
+                console.error("Function Call Error:", error);
+                adviceContent.innerHTML = `<p class="text-red-400 text-center">Sorry, I couldn't get any advice right now. Please try again later.</p>`;
+            } finally {
+                adviceLoader.classList.add("hidden");
+            }
+        }
+
+        searchForm.addEventListener("submit", handleSearchSubmit);
+        adviceButton.addEventListener("click", getWeatherAdvice);
+        closeModalButton.addEventListener("click", () => adviceModal.classList.add("hidden"));
+
+        // Load with a default city
+        searchCity("Johannesburg");
+    </script>
+</body>
+</html>
+
