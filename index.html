@@ -43,7 +43,6 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* --- 4. Animations --- */
-        /* Changed: Elements are visible by default, animation is an enhancement */
         .fade-in-up {
             animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
         }
@@ -74,29 +73,31 @@
         }
         @keyframes drawLine { to { stroke-dashoffset: 0; } }
         
-        /* Error Message Container */
-        #debug-console {
+        /* Demo Badge */
+        #demo-badge {
             display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(220, 38, 38, 0.9);
-            color: white;
-            padding: 1rem;
-            font-size: 0.8rem;
-            z-index: 9999;
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(245, 158, 11, 0.9);
+            color: black;
+            font-weight: bold;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            z-index: 50;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body class="flex items-center justify-center p-0 sm:p-4 h-screen overflow-hidden">
 
-    <!-- Debug Console for "White Screen" issues -->
-    <div id="debug-console"></div>
-
     <!-- Mobile-like Container -->
     <div class="w-full max-w-md h-full sm:h-[90vh] sm:aspect-[9/19] bg-white/5 sm:rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col border border-white/10">
         
+        <!-- Demo Mode Indicator -->
+        <div id="demo-badge">DEMO MODE</div>
+
         <!-- Background Decor -->
         <div class="absolute top-[-100px] right-[-100px] w-64 h-64 bg-pink-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
         <div class="absolute bottom-[-100px] left-[-100px] w-64 h-64 bg-cyan-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
@@ -187,16 +188,7 @@
 
     <!-- === JavaScript === -->
     <script>
-        // --- 1. Safety & Debugging ---
-        window.onerror = function(msg, url, line) {
-            const debug = document.getElementById('debug-console');
-            debug.style.display = 'block';
-            debug.innerHTML += `Error: ${msg} (Line ${line})<br>`;
-            // Force mock data if we crash early
-            loadMockData("Error Fallback");
-        };
-
-        // --- 2. DOM Elements ---
+        // --- 1. DOM Elements ---
         const els = {
             city: document.querySelector("#city-name"),
             date: document.querySelector("#current-date"),
@@ -213,22 +205,33 @@
             searchForm: document.querySelector("#search-form"),
             searchInput: document.querySelector("#search-input"),
             searchToggle: document.querySelector("#search-toggle"),
-            searchBar: document.querySelector("#search-bar")
+            searchBar: document.querySelector("#search-bar"),
+            demoBadge: document.querySelector("#demo-badge")
         };
 
-        // --- 3. Mock Data Loader (Preview Mode) ---
+        // --- 2. Smart Mock Data (Preview Mode) ---
         function loadMockData(cityName = "Preview City") {
-            console.log("Activating Preview Mode (Mock Data)");
+            console.warn("Backend Error: Loading Demo Data.");
+            els.demoBadge.style.display = 'block'; // Show Demo Badge
+            
+            // Generate a 'random' but consistent temperature based on city name characters
+            // This ensures "London" looks different from "Paris"
+            let hash = 0;
+            for (let i = 0; i < cityName.length; i++) {
+                hash = cityName.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const baseTemp = Math.abs(hash % 30) + 5; // Temp between 5 and 35
+            
             const now = Date.now() / 1000;
             const mockCurrent = {
                 city: cityName,
                 time: now,
-                temperature: { current: 24, humidity: 45, wind_speed: 12 },
-                condition: { description: "Clear Sky", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
+                temperature: { current: baseTemp, humidity: 45, wind_speed: 12 },
+                condition: { description: "Demo Data", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
             };
             const mockDaily = Array(5).fill(0).map((_, i) => ({
                 time: now + (i * 86400),
-                temperature: { day: 24 + (i % 2 === 0 ? 2 : -2), maximum: 28, minimum: 18 },
+                temperature: { day: baseTemp + (i % 2 === 0 ? 2 : -2), maximum: baseTemp + 4, minimum: baseTemp - 2 },
                 condition: { description: "Sunny", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
             }));
             
@@ -237,12 +240,12 @@
             // Mock AI
             els.aiLoading.classList.remove('hidden');
             setTimeout(() => {
-                const mockAdvice = "You are viewing a preview! Deploy to Netlify to see real live weather data and AI insights.";
+                const mockAdvice = `(Demo) We couldn't connect to the server, so here is a guess for ${cityName}: Looks like a great day!`;
                 typeWriter(mockAdvice);
             }, 1000);
         }
 
-        // --- 4. UI Logic ---
+        // --- 3. UI Logic ---
         function formatDate(timestamp) {
             const date = new Date(timestamp * 1000);
             return date.toLocaleDateString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
@@ -254,7 +257,7 @@
 
         function drawGraph(temps) {
             if (!els.forecast || temps.length === 0) return;
-            const width = els.forecast.offsetWidth || 300; // Fallback width
+            const width = els.forecast.offsetWidth || 300; 
             const height = 60;
             const max = Math.max(...temps) + 2;
             const min = Math.min(...temps) - 2;
@@ -331,18 +334,24 @@
             type();
         }
 
-        // --- 5. Main Logic ---
+        // --- 4. Main Logic ---
         async function searchCity(city) {
             // Try fetching from backend
             const apiUrl = `/.netlify/functions/fetch-weather?city=${city}`;
             try {
                 const res = await fetch(apiUrl);
                 if(!res.ok) throw new Error("Backend unavailable");
+                
                 const data = await res.json();
+                
+                // If we get here, data is REAL
+                els.demoBadge.style.display = 'none'; // Hide demo badge
                 updateWeatherUI(data.current, data.daily);
                 getGeminiAdvice(city, data.current.temperature.current, data.current.condition.description);
+
             } catch(e) {
-                // If backend fails (e.g. in Canvas/Preview), load mock data instantly
+                // If backend fails, load smart mock data
+                console.error("Fetch failed:", e);
                 loadMockData(city);
             }
         }
@@ -360,11 +369,11 @@
                 const data = await res.json();
                 typeWriter(data.advice || "Enjoy the day!");
             } catch(e) {
-                 typeWriter("AI unavailable in preview. Deploy to see insights!");
+                 typeWriter("AI unavailable. Check API keys.");
             }
         }
 
-        // --- 6. Event Listeners ---
+        // --- 5. Event Listeners ---
         els.searchToggle.addEventListener('click', () => {
             els.searchBar.classList.toggle('hidden');
             if(!els.searchBar.classList.contains('hidden')) els.searchInput.focus();
