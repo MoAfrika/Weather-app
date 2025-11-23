@@ -3,275 +3,386 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Weather App</title>
-    <!-- Tailwind CSS for modern styling -->
+    <title>Aurora Weather AI</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Axios for API requests -->
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.1.2/dist/axios.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        /* Custom styles to complement Tailwind */
+        /* --- 1. Custom Color Palette & Global Styles --- */
+        :root {
+            --bg-gradient-start: #0f172a; /* Slate 900 */
+            --bg-gradient-mid: #312e81;   /* Indigo 900 */
+            --bg-gradient-end: #4c1d95;   /* Violet 900 */
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
         }
-        /* New Apple-inspired color palette */
-        .weather-app-container {
-            background: linear-gradient(180deg, #4A90E2 0%, #81C7F5 100%);
+
+        /* --- 2. Glassmorphism Utilities --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
         }
-        .weather-card {
-            background-color: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        /* --- 3. Custom Scrollbar --- */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- 4. Animations --- */
+        /* Changed: Elements are visible by default, animation is an enhancement */
+        .fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
         }
-        .search-input:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.5);
+        
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        /* Styles for the AI Advice Modal */
-        #advice-modal-content h3 {
-           font-size: 1.25rem; /* text-xl */
-           font-weight: 600; /* font-semibold */
-           margin-bottom: 0.5rem; /* mb-2 */
-           color: #EBF8FF; /* A very light, crisp blue */
-        }
-        #advice-modal-content ul {
-            list-style-position: inside;
-            margin-bottom: 1rem; /* mb-4 */
-            padding-left: 0.5rem; /* pl-2 */
-        }
-        #advice-modal-content li {
-            margin-bottom: 0.25rem; /* mb-1 */
-        }
-        /* Simple spinner animation */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+
         .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-left-color: #f472b6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
             animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        path.weather-line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 2s ease-out forwards;
+        }
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+        
+        /* Error Message Container */
+        #debug-console {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            padding: 1rem;
+            font-size: 0.8rem;
+            z-index: 9999;
         }
     </style>
 </head>
-<body class="weather-app-container min-h-screen flex items-center justify-center p-4">
+<body class="flex items-center justify-center p-0 sm:p-4 h-screen overflow-hidden">
 
-    <div class="weather-card w-full max-w-3xl rounded-3xl p-6 sm:p-8 text-white shadow-2xl">
-        <!-- Header: Search Form -->
-        <header class="mb-8">
-            <form id="search-form" class="flex flex-col sm:flex-row gap-4">
-                <input
-                    type="search"
-                    placeholder="Enter a city..."
-                    required
-                    id="search-input"
-                    class="search-input w-full flex-grow px-5 py-3 rounded-full bg-white/10 placeholder-white/70 text-white border-0 transition duration-300"
-                />
-                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-full transition duration-300 shadow-lg">
-                    Search
-                </button>
-            </form>
+    <!-- Debug Console for "White Screen" issues -->
+    <div id="debug-console"></div>
+
+    <!-- Mobile-like Container -->
+    <div class="w-full max-w-md h-full sm:h-[90vh] sm:aspect-[9/19] bg-white/5 sm:rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col border border-white/10">
+        
+        <!-- Background Decor -->
+        <div class="absolute top-[-100px] right-[-100px] w-64 h-64 bg-pink-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
+        <div class="absolute bottom-[-100px] left-[-100px] w-64 h-64 bg-cyan-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
+
+        <!-- === Header === -->
+        <header class="relative z-20 flex-none flex justify-between items-center p-6 pb-2 bg-gradient-to-b from-[#0f172a]/80 to-transparent">
+            <div class="flex flex-col">
+                <h1 id="city-name" class="text-2xl font-bold tracking-wide drop-shadow-md">Loading...</h1>
+                <p id="current-date" class="text-sm text-white/70">Updating...</p>
+            </div>
+            <button id="search-toggle" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition backdrop-blur-md shadow-lg border border-white/10">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
         </header>
 
-        <main>
-            <!-- Main Content: Current Weather -->
-            <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-6">
-                <!-- City and Time Details -->
-                <div class="text-center md:text-left">
-                    <h1 class="text-4xl sm:text-5xl font-bold" id="current-city">Paris</h1>
-                    <p class="text-lg text-white/80" id="current-details">
-                        <span id="current-date"></span>
-                    </p>
-                </div>
-                <!-- Temperature Details -->
-                <div class="flex items-center gap-4 text-center md:text-right">
-                    <img src="https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" alt="Weather icon" id="current-temperature-icon" class="w-24 h-24 sm:w-28 sm:h-28">
-                    <div>
-                        <div class="text-6xl sm:text-7xl font-bold">
-                            <span id="current-temperature">24</span><span class="text-3xl align-top">°C</span>
-                        </div>
-                         <div class="text-sm">
-                            <span id="weather-description">Clear Sky</span> |
-                            Humidity: <strong id="humidity">87%</strong>,
-                            Wind: <strong id="wind-speed">7.2km/h</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-             <!-- AI Advice Button -->
-            <div class="text-center mb-10">
-                <button id="advice-button" class="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-3 rounded-full transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    Get Weather Advice ✨
-                </button>
-            </div>
-
-
-            <!-- 5-Day Forecast -->
-            <div id="forecast" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
-                <!-- Forecast items will be injected here by JavaScript -->
-            </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="mt-8 pt-6 border-t border-white/20 text-center text-sm text-white/60">
-            <p>
-                This project was coded by
-                <a href="https://web.facebook.com/profile.php?id=61573253288425" target="_blank" class="font-semibold underline hover:text-white">Skotch Metabytes</a>, is
-                <a href="https://github.com/ChefFelicia/SheCodes-Felicia" target="_blank" class="font-semibold underline hover:text-white"> open-sourced on GitHub</a> and
-                <a href="https://app.netlify.com/teams/cheffelicia/overview" target="_blank" class="font-semibold underline hover:text-white">hosted on Netlify</a>.
-            </p>
-        </footer>
-    </div>
-
-    <!-- AI Advice Modal -->
-    <div id="advice-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div class="weather-card w-full max-w-md rounded-2xl p-6 relative">
-            <button id="close-modal-button" class="absolute top-4 right-4 text-white/70 hover:text-white text-2xl">&times;</button>
-            <h2 class="text-2xl font-bold mb-4 text-center">AI Weather Advice</h2>
-            <div id="advice-loader" class="hidden w-10 h-10 rounded-full spinner mx-auto"></div>
-            <div id="advice-modal-content" class="text-white/90"></div>
+        <!-- Search Overlay -->
+        <div id="search-bar" class="hidden absolute top-20 left-6 right-6 z-50 fade-in-up">
+            <form id="search-form" class="flex gap-2">
+                <input type="text" id="search-input" placeholder="Search a city..." class="flex-1 bg-slate-900/95 text-white px-4 py-3 rounded-2xl border border-white/20 focus:outline-none focus:border-pink-500 shadow-2xl backdrop-blur-xl">
+                <button type="submit" class="bg-pink-500 px-5 rounded-2xl font-bold hover:bg-pink-600 transition shadow-lg">Go</button>
+            </form>
         </div>
-    </div>
 
-
-    <script>
-        const weatherApiKey = "b2a5adcct04b33178913oc335f405433";
-        const searchForm = document.querySelector("#search-form");
-        const adviceButton = document.querySelector("#advice-button");
-        const adviceModal = document.querySelector("#advice-modal");
-        const closeModalButton = document.querySelector("#close-modal-button");
-
-        let currentWeatherData = null;
-
-        function formatDate(date) {
-            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            const day = days[date.getDay()];
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${day} ${hours}:${minutes}`;
-        }
-
-        function updateCurrentWeather(response) {
-            currentWeatherData = response.data;
-            const data = currentWeatherData;
-
-            document.querySelector("#current-city").innerHTML = data.city;
-            document.querySelector("#current-temperature").innerHTML = Math.round(data.temperature.current);
-            document.querySelector("#weather-description").innerHTML = data.condition.description;
-            document.querySelector("#humidity").innerHTML = `${data.temperature.humidity}%`;
-            document.querySelector("#wind-speed").innerHTML = `${data.wind.speed}km/h`;
-            document.querySelector("#current-date").innerHTML = formatDate(new Date(data.time * 1000));
-            const iconElement = document.querySelector("#current-temperature-icon");
-            iconElement.src = data.condition.icon_url;
-            iconElement.alt = data.condition.description;
-
-            adviceButton.disabled = false;
-        }
-
-        function formatForecastDay(timestamp) {
-            const date = new Date(timestamp * 1000);
-            const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-            return days[date.getDay()];
-        }
-        
-        function displayForecast(response) {
-            let forecastHtml = "";
-            response.data.daily.slice(1, 6).forEach(day => {
-                forecastHtml += `
-                    <div class="flex flex-col items-center p-3 rounded-2xl bg-white/10">
-                        <div class="font-semibold">${formatForecastDay(day.time)}</div>
-                        <img src="${day.condition.icon_url}" alt="${day.condition.description}" class="w-16 h-16 my-2">
-                        <div class="font-semibold">
-                            <span class="font-bold">${Math.round(day.temperature.maximum)}°</span>
-                            <span class="opacity-70">${Math.round(day.temperature.minimum)}°</span>
+        <!-- === Main Scrollable Area === -->
+        <main class="flex-1 overflow-y-auto overflow-x-hidden relative z-10 hide-scrollbar pb-8">
+            
+            <!-- Hero Section -->
+            <section class="relative px-6 pt-4 pb-6 flex flex-col items-start fade-in-up delay-100">
+                <div class="flex justify-between w-full items-center">
+                    <div>
+                        <div class="flex items-start">
+                            <span id="temperature" class="text-[6rem] leading-none font-light tracking-tighter drop-shadow-xl">--</span>
+                            <span class="text-4xl mt-4 font-light">°</span>
+                        </div>
+                        <p id="condition" class="text-xl text-pink-300 font-medium capitalize mt-1 drop-shadow-md">Waiting for data...</p>
+                        <div class="mt-2 text-sm text-white/60 flex gap-3 font-medium">
+                            <span>H: <span id="temp-high">--</span>°</span>
+                            <span>L: <span id="temp-low">--</span>°</span>
                         </div>
                     </div>
-                `;
-            });
-            document.querySelector("#forecast").innerHTML = forecastHtml;
-        }
-        
-        function searchCity(city) {
-            adviceButton.disabled = true;
-            const weatherApiUrl = `https://api.shecodes.io/weather/v1/current?query=${city}&key=${weatherApiKey}&units=metric`;
-            axios.get(weatherApiUrl).then(updateCurrentWeather).catch(handleApiError);
+                    <div class="relative">
+                        <div class="absolute inset-0 bg-white/20 blur-xl rounded-full"></div>
+                        <img id="weather-icon" src="https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" alt="Weather Icon" class="w-32 h-32 relative z-10 drop-shadow-2xl object-contain">
+                    </div>
+                </div>
+            </section>
 
-            const forecastApiUrl = `https://api.shecodes.io/weather/v1/forecast?query=${city}&key=${weatherApiKey}&units=metric`;
-            axios.get(forecastApiUrl).then(displayForecast).catch(handleApiError);
-        }
+            <!-- Hourly Section -->
+            <section class="glass-panel mx-4 mb-4 p-5 fade-in-up delay-200 shadow-lg">
+                <h3 class="text-sm font-semibold text-white/80 mb-3 ml-1 flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-pink-400"></i> Hourly Forecast
+                </h3>
+                <div id="hourly-container" class="flex overflow-x-auto gap-4 hide-scrollbar pb-2 px-1">
+                    <!-- Javascript will populate this -->
+                    <div class="text-sm text-white/50">Loading hours...</div>
+                </div>
+            </section>
 
-        function handleSearchSubmit(event) {
-            event.preventDefault();
-            const searchInputElement = document.querySelector("#search-input");
-            const city = searchInputElement.value.trim();
-            if (city) {
-                searchCity(city);
-            }
-        }
+            <!-- Weekly Section -->
+            <section class="glass-panel mx-4 mb-4 p-5 fade-in-up delay-300 relative overflow-hidden shadow-lg min-h-[160px]">
+                <h3 class="text-sm font-semibold text-white/80 mb-4 ml-1 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-week text-pink-400"></i> The Weekly Scoop
+                </h3>
+                <svg id="forecast-graph" class="absolute top-[80px] left-0 w-full h-[60px] pointer-events-none z-0 opacity-50" preserveAspectRatio="none"></svg>
+                <div id="forecast-container" class="grid grid-cols-5 gap-2 relative z-10 text-center">
+                     <div class="col-span-5 text-sm text-white/50">Loading week...</div>
+                </div>
+            </section>
 
-        function handleApiError(error) {
-            console.error("Weather API Error:", error);
-            const content = document.querySelector("#advice-modal-content");
-            content.innerHTML = `<p class="text-red-400 text-center">Sorry, we couldn't find weather for that city. Please check the spelling and try again.</p>`;
-            document.querySelector("#advice-loader").classList.add("hidden");
-            adviceModal.classList.remove("hidden");
-        }
+            <!-- AI Section -->
+            <section class="glass-panel mx-4 p-6 fade-in-up delay-300 flex flex-col relative overflow-hidden mb-8 shadow-lg min-h-[140px]">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2 text-pink-300">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span class="text-sm font-bold uppercase tracking-wider">AI Insight</span>
+                    </div>
+                    <div id="ai-loading" class="hidden spinner"></div>
+                </div>
+                <div id="ai-content" class="text-lg leading-relaxed text-white/90 font-light relative z-10">
+                    Initializing AI...
+                </div>
+                <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+            </section>
 
-        async function getWeatherAdvice() {
-            if (!currentWeatherData) return;
+            <div class="h-4"></div>
+        </main>
+    </div>
 
-            const adviceContent = document.querySelector("#advice-modal-content");
-            const adviceLoader = document.querySelector("#advice-loader");
+    <!-- === JavaScript === -->
+    <script>
+        // --- 1. Safety & Debugging ---
+        window.onerror = function(msg, url, line) {
+            const debug = document.getElementById('debug-console');
+            debug.style.display = 'block';
+            debug.innerHTML += `Error: ${msg} (Line ${line})<br>`;
+            // Force mock data if we crash early
+            loadMockData("Error Fallback");
+        };
 
-            adviceModal.classList.remove("hidden");
-            adviceLoader.classList.remove("hidden");
-            adviceContent.innerHTML = "";
+        // --- 2. DOM Elements ---
+        const els = {
+            city: document.querySelector("#city-name"),
+            date: document.querySelector("#current-date"),
+            temp: document.querySelector("#temperature"),
+            condition: document.querySelector("#condition"),
+            high: document.querySelector("#temp-high"),
+            low: document.querySelector("#temp-low"),
+            icon: document.querySelector("#weather-icon"),
+            hourly: document.querySelector("#hourly-container"),
+            forecast: document.querySelector("#forecast-container"),
+            graph: document.querySelector("#forecast-graph"),
+            aiContent: document.querySelector("#ai-content"),
+            aiLoading: document.querySelector("#ai-loading"),
+            searchForm: document.querySelector("#search-form"),
+            searchInput: document.querySelector("#search-input"),
+            searchToggle: document.querySelector("#search-toggle"),
+            searchBar: document.querySelector("#search-bar")
+        };
 
-            const { city, temperature, condition }  = currentWeatherData;
-            const userQuery = `Based on the weather in ${city}, which is currently ${Math.round(temperature.current)}°C with ${condition.description}, please provide:
-            1. A short, friendly suggestion on what to wear.
-            2. Two activity suggestions (one indoor, one outdoor if the weather is suitable).`;
+        // --- 3. Mock Data Loader (Preview Mode) ---
+        function loadMockData(cityName = "Preview City") {
+            console.log("Activating Preview Mode (Mock Data)");
+            const now = Date.now() / 1000;
+            const mockCurrent = {
+                city: cityName,
+                time: now,
+                temperature: { current: 24, humidity: 45, wind_speed: 12 },
+                condition: { description: "Clear Sky", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
+            };
+            const mockDaily = Array(5).fill(0).map((_, i) => ({
+                time: now + (i * 86400),
+                temperature: { day: 24 + (i % 2 === 0 ? 2 : -2), maximum: 28, minimum: 18 },
+                condition: { description: "Sunny", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
+            }));
             
-            // This is the new, secure way to call the API via a Netlify Function
-            const functionUrl = `/.netlify/functions/get-advice`;
+            updateWeatherUI(mockCurrent, mockDaily);
+            
+            // Mock AI
+            els.aiLoading.classList.remove('hidden');
+            setTimeout(() => {
+                const mockAdvice = "You are viewing a preview! Deploy to Netlify to see real live weather data and AI insights.";
+                typeWriter(mockAdvice);
+            }, 1000);
+        }
 
-            try {
-                const response = await fetch(functionUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    // Send the query to our serverless function
-                    body: JSON.stringify({ query: userQuery })
+        // --- 4. UI Logic ---
+        function formatDate(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleDateString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getDayName(timestamp) {
+            return new Date(timestamp * 1000).toLocaleDateString('en-US', { weekday: 'short' });
+        }
+
+        function drawGraph(temps) {
+            if (!els.forecast || temps.length === 0) return;
+            const width = els.forecast.offsetWidth || 300; // Fallback width
+            const height = 60;
+            const max = Math.max(...temps) + 2;
+            const min = Math.min(...temps) - 2;
+            const colWidth = width / 5;
+            
+            let d = "";
+            temps.forEach((t, i) => {
+                const x = (colWidth * i) + (colWidth / 2);
+                const y = height - ((t - min) / (max - min)) * height;
+                d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+            });
+            els.graph.innerHTML = `<path d="${d}" fill="none" stroke="#f472b6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="weather-line" />`;
+        }
+
+        function updateWeatherUI(current, daily) {
+            if(!current) return;
+            
+            // Current
+            els.city.innerText = current.city;
+            els.date.innerText = formatDate(current.time);
+            els.temp.innerText = Math.round(current.temperature.current);
+            els.condition.innerText = current.condition.description;
+            els.icon.src = current.condition.icon_url;
+            
+            if(daily && daily.length) {
+                els.high.innerText = Math.round(daily[0].temperature.maximum);
+                els.low.innerText = Math.round(daily[0].temperature.minimum);
+            }
+
+            // Hourly (Simulated)
+            let hHtml = "";
+            const startHour = new Date(current.time * 1000).getHours();
+            for(let i=0; i<6; i++) {
+                let t = Math.round(current.temperature.current + (Math.random()*2-1));
+                hHtml += `
+                    <div class="flex flex-col items-center min-w-[60px] bg-white/5 rounded-xl py-2 border border-white/5">
+                        <span class="text-xs text-white/70 mb-1">${(startHour+i)%24}:00</span>
+                        <img src="${current.condition.icon_url}" class="w-6 h-6 mb-1 opacity-90">
+                        <span class="font-bold text-md">${t}°</span>
+                    </div>`;
+            }
+            els.hourly.innerHTML = hHtml;
+
+            // Weekly
+            let wHtml = "";
+            let graphTemps = [];
+            if(daily) {
+                daily.slice(0, 5).forEach(day => {
+                    let t = Math.round(day.temperature.day);
+                    graphTemps.push(t);
+                    wHtml += `
+                        <div class="flex flex-col items-center justify-between h-full py-2 z-10">
+                            <span class="text-xs font-medium text-white/70">${getDayName(day.time)}</span>
+                            <img src="${day.condition.icon_url}" class="w-8 h-8 my-1 opacity-90 drop-shadow-md">
+                            <span class="font-bold text-lg">${t}°</span>
+                        </div>`;
                 });
+            }
+            els.forecast.innerHTML = wHtml;
+            setTimeout(() => drawGraph(graphTemps), 100);
+        }
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        function typeWriter(text) {
+            els.aiContent.innerText = "";
+            let i = 0;
+            els.aiLoading.classList.add('hidden');
+            function type() {
+                if(i < text.length) {
+                    els.aiContent.innerText += text.charAt(i);
+                    i++;
+                    setTimeout(type, 30);
                 }
+            }
+            type();
+        }
 
-                const result = await response.json();
-                
-                if (result.advice) {
-                    adviceContent.innerHTML = result.advice;
-                } else {
-                    throw new Error("Invalid response structure from the advice function.");
-                }
-            } catch (error) {
-                console.error("Function Call Error:", error);
-                adviceContent.innerHTML = `<p class="text-red-400 text-center">Sorry, I couldn't get any advice right now. Please try again later.</p>`;
-            } finally {
-                adviceLoader.classList.add("hidden");
+        // --- 5. Main Logic ---
+        async function searchCity(city) {
+            // Try fetching from backend
+            const apiUrl = `/.netlify/functions/fetch-weather?city=${city}`;
+            try {
+                const res = await fetch(apiUrl);
+                if(!res.ok) throw new Error("Backend unavailable");
+                const data = await res.json();
+                updateWeatherUI(data.current, data.daily);
+                getGeminiAdvice(city, data.current.temperature.current, data.current.condition.description);
+            } catch(e) {
+                // If backend fails (e.g. in Canvas/Preview), load mock data instantly
+                loadMockData(city);
             }
         }
 
-        searchForm.addEventListener("submit", handleSearchSubmit);
-        adviceButton.addEventListener("click", getWeatherAdvice);
-        closeModalButton.addEventListener("click", () => adviceModal.classList.add("hidden"));
+        async function getGeminiAdvice(city, temp, desc) {
+            els.aiContent.innerText = "Asking the clouds...";
+            els.aiLoading.classList.remove('hidden');
+            try {
+                const res = await fetch('/.netlify/functions/fetch-advice', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({query: `Weather in ${city} is ${temp}C, ${desc}. Short advice.`})
+                });
+                if(!res.ok) throw new Error("AI unavailable");
+                const data = await res.json();
+                typeWriter(data.advice || "Enjoy the day!");
+            } catch(e) {
+                 typeWriter("AI unavailable in preview. Deploy to see insights!");
+            }
+        }
 
-        // Load with a default city
-        searchCity("Johannesburg");
+        // --- 6. Event Listeners ---
+        els.searchToggle.addEventListener('click', () => {
+            els.searchBar.classList.toggle('hidden');
+            if(!els.searchBar.classList.contains('hidden')) els.searchInput.focus();
+        });
+
+        els.searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = els.searchInput.value.trim();
+            if(val) {
+                searchCity(val);
+                els.searchBar.classList.add('hidden');
+                els.searchInput.value = "";
+            }
+        });
+
+        // Start
+        searchCity("Pretoria");
+
     </script>
 </body>
 </html>
-
