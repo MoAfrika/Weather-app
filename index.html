@@ -43,10 +43,7 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* --- 4. Animations --- */
-        .fade-in-up {
-            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
-        
+        .fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
         .delay-100 { animation-delay: 0.1s; }
         .delay-200 { animation-delay: 0.2s; }
         .delay-300 { animation-delay: 0.3s; }
@@ -72,21 +69,18 @@
             animation: drawLine 2s ease-out forwards;
         }
         @keyframes drawLine { to { stroke-dashoffset: 0; } }
-        
-        /* Demo Badge */
-        #demo-badge {
+
+        /* Error Banner */
+        #error-banner {
             display: none;
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: rgba(245, 158, 11, 0.9);
-            color: black;
-            font-weight: bold;
-            font-size: 0.7rem;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            z-index: 50;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            top: 0; left: 0; right: 0;
+            background: #ef4444;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.8rem;
+            z-index: 100;
         }
     </style>
 </head>
@@ -95,8 +89,8 @@
     <!-- Mobile-like Container -->
     <div class="w-full max-w-md h-full sm:h-[90vh] sm:aspect-[9/19] bg-white/5 sm:rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col border border-white/10">
         
-        <!-- Demo Mode Indicator -->
-        <div id="demo-badge">DEMO MODE</div>
+        <!-- Error Banner -->
+        <div id="error-banner"></div>
 
         <!-- Background Decor -->
         <div class="absolute top-[-100px] right-[-100px] w-64 h-64 bg-pink-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
@@ -132,7 +126,7 @@
                             <span id="temperature" class="text-[6rem] leading-none font-light tracking-tighter drop-shadow-xl">--</span>
                             <span class="text-4xl mt-4 font-light">°</span>
                         </div>
-                        <p id="condition" class="text-xl text-pink-300 font-medium capitalize mt-1 drop-shadow-md">Waiting for data...</p>
+                        <p id="condition" class="text-xl text-pink-300 font-medium capitalize mt-1 drop-shadow-md">...</p>
                         <div class="mt-2 text-sm text-white/60 flex gap-3 font-medium">
                             <span>H: <span id="temp-high">--</span>°</span>
                             <span>L: <span id="temp-low">--</span>°</span>
@@ -151,8 +145,7 @@
                     <i class="fa-regular fa-clock text-pink-400"></i> Hourly Forecast
                 </h3>
                 <div id="hourly-container" class="flex overflow-x-auto gap-4 hide-scrollbar pb-2 px-1">
-                    <!-- Javascript will populate this -->
-                    <div class="text-sm text-white/50">Loading hours...</div>
+                    <div class="text-sm text-white/50">Loading...</div>
                 </div>
             </section>
 
@@ -163,7 +156,7 @@
                 </h3>
                 <svg id="forecast-graph" class="absolute top-[80px] left-0 w-full h-[60px] pointer-events-none z-0 opacity-50" preserveAspectRatio="none"></svg>
                 <div id="forecast-container" class="grid grid-cols-5 gap-2 relative z-10 text-center">
-                     <div class="col-span-5 text-sm text-white/50">Loading week...</div>
+                     <div class="col-span-5 text-sm text-white/50">Loading...</div>
                 </div>
             </section>
 
@@ -177,7 +170,7 @@
                     <div id="ai-loading" class="hidden spinner"></div>
                 </div>
                 <div id="ai-content" class="text-lg leading-relaxed text-white/90 font-light relative z-10">
-                    Initializing AI...
+                    Initializing...
                 </div>
                 <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
             </section>
@@ -188,7 +181,7 @@
 
     <!-- === JavaScript === -->
     <script>
-        // --- 1. DOM Elements ---
+        // --- DOM Elements ---
         const els = {
             city: document.querySelector("#city-name"),
             date: document.querySelector("#current-date"),
@@ -206,46 +199,10 @@
             searchInput: document.querySelector("#search-input"),
             searchToggle: document.querySelector("#search-toggle"),
             searchBar: document.querySelector("#search-bar"),
-            demoBadge: document.querySelector("#demo-badge")
+            errorBanner: document.querySelector("#error-banner")
         };
 
-        // --- 2. Smart Mock Data (Preview Mode) ---
-        function loadMockData(cityName = "Preview City") {
-            // Only warn, don't error, to keep console clean
-            console.warn(`Preview Mode: Loaded demo data for ${cityName}`);
-            els.demoBadge.style.display = 'block'; 
-            
-            // Unique-ish data based on city name length/chars
-            let hash = 0;
-            for (let i = 0; i < cityName.length; i++) {
-                hash = cityName.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const baseTemp = Math.abs(hash % 30) + 5; 
-            
-            const now = Date.now() / 1000;
-            const mockCurrent = {
-                city: cityName,
-                time: now,
-                temperature: { current: baseTemp, humidity: 45, wind_speed: 12 },
-                condition: { description: "Demo Data", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
-            };
-            const mockDaily = Array(5).fill(0).map((_, i) => ({
-                time: now + (i * 86400),
-                temperature: { day: baseTemp + (i % 2 === 0 ? 2 : -2), maximum: baseTemp + 4, minimum: baseTemp - 2 },
-                condition: { description: "Sunny", icon_url: "https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" }
-            }));
-            
-            updateWeatherUI(mockCurrent, mockDaily);
-            
-            // Mock AI
-            els.aiLoading.classList.remove('hidden');
-            setTimeout(() => {
-                const mockAdvice = `(Demo) Since this is a preview, here is a guess for ${cityName}: Looks like a great day to deploy your code!`;
-                typeWriter(mockAdvice);
-            }, 1000);
-        }
-
-        // --- 3. UI Logic ---
+        // --- UI Logic ---
         function formatDate(timestamp) {
             const date = new Date(timestamp * 1000);
             return date.toLocaleDateString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
@@ -275,7 +232,6 @@
         function updateWeatherUI(current, daily) {
             if(!current) return;
             
-            // Current
             els.city.innerText = current.city;
             els.date.innerText = formatDate(current.time);
             els.temp.innerText = Math.round(current.temperature.current);
@@ -287,11 +243,12 @@
                 els.low.innerText = Math.round(daily[0].temperature.minimum);
             }
 
-            // Hourly (Simulated)
+            // Hourly (Simulated from Current)
             let hHtml = "";
             const startHour = new Date(current.time * 1000).getHours();
             for(let i=0; i<6; i++) {
-                let t = Math.round(current.temperature.current + (Math.random()*2-1));
+                // Variation based on index to look dynamic but consistent
+                let t = Math.round(current.temperature.current + (Math.sin(i) * 2));
                 hHtml += `
                     <div class="flex flex-col items-center min-w-[60px] bg-white/5 rounded-xl py-2 border border-white/5">
                         <span class="text-xs text-white/70 mb-1">${(startHour+i)%24}:00</span>
@@ -334,41 +291,58 @@
             type();
         }
 
-        // --- 4. Main Logic ---
-        async function searchCity(city) {
-            // DETECT PREVIEW ENVIRONMENT:
-            // If we are in a blob/preview url, we CANNOT fetch from /.netlify/
-            // because there is no backend here. We skip straight to mock data
-            // to avoid the "Failed to parse URL" error.
-            if (window.location.protocol === 'blob:' || window.location.href.includes('blob:')) {
-                loadMockData(city);
-                return;
-            }
+        function showError(msg) {
+            els.errorBanner.innerText = msg;
+            els.errorBanner.style.display = 'block';
+            setTimeout(() => { els.errorBanner.style.display = 'none'; }, 5000);
+        }
 
-            const apiUrl = `/.netlify/functions/fetch-weather?city=${city}`;
+        // --- Main Data Logic ---
+        async function searchCity(city) {
+            // Encode city to handle spaces (e.g., "New York")
+            const safeCity = encodeURIComponent(city);
+            const apiUrl = `/.netlify/functions/fetch-weather?city=${safeCity}`;
+            
+            els.errorBanner.style.display = 'none'; // Clear errors
+
             try {
                 const res = await fetch(apiUrl);
-                if(!res.ok) throw new Error("Backend unavailable");
+                
+                if (!res.ok) {
+                    // Attempt to read the error message from the JSON response
+                    let errMsg = `Server Error: ${res.status}`;
+                    try {
+                        const errData = await res.json();
+                        if (errData.error) errMsg = errData.error;
+                    } catch(e) {}
+                    
+                    throw new Error(errMsg);
+                }
                 
                 const data = await res.json();
                 
-                // If we get here, data is REAL
-                els.demoBadge.style.display = 'none'; 
+                if(!data.current) {
+                    throw new Error("Invalid data format received");
+                }
+                
+                // DATA LOADED SUCCESSFULLY
                 updateWeatherUI(data.current, data.daily);
                 getGeminiAdvice(city, data.current.temperature.current, data.current.condition.description);
 
             } catch(e) {
-                console.warn("Fetch failed (Expected in local/preview):", e.message);
-                loadMockData(city);
+                console.error("Weather Fetch Error:", e);
+                // SHOW ERROR ON SCREEN so you know why it failed
+                showError(`Error: ${e.message}. (Check Netlify Logs)`);
+                
+                // DO NOT load demo data here automatically. 
+                // This way you know for sure if the connection failed.
+                els.city.innerText = "Error";
+                els.condition.innerText = "Connection Failed";
+                els.temp.innerText = "--";
             }
         }
 
         async function getGeminiAdvice(city, temp, desc) {
-            // Same check for AI
-            if (window.location.protocol === 'blob:' || window.location.href.includes('blob:')) {
-                return; // Mock data already handles advice
-            }
-
             els.aiContent.innerText = "Asking the clouds...";
             els.aiLoading.classList.remove('hidden');
             try {
@@ -377,15 +351,20 @@
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({query: `Weather in ${city} is ${temp}C, ${desc}. Short advice.`})
                 });
-                if(!res.ok) throw new Error("AI unavailable");
+                
+                if(!res.ok) {
+                     throw new Error(`AI Error: ${res.status}`);
+                }
+                
                 const data = await res.json();
-                typeWriter(data.advice || "Enjoy the day!");
+                typeWriter(data.advice || "Enjoy the weather!");
             } catch(e) {
-                 typeWriter("AI unavailable in preview.");
+                 console.error(e);
+                 typeWriter("AI Service unavailable. Check your Gemini API Key in Netlify.");
             }
         }
 
-        // --- 5. Event Listeners ---
+        // --- Event Listeners ---
         els.searchToggle.addEventListener('click', () => {
             els.searchBar.classList.toggle('hidden');
             if(!els.searchBar.classList.contains('hidden')) els.searchInput.focus();
@@ -401,7 +380,7 @@
             }
         });
 
-        // Start
+        // Initial Load
         searchCity("Pretoria");
 
     </script>
