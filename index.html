@@ -211,16 +211,16 @@
 
         // --- 2. Smart Mock Data (Preview Mode) ---
         function loadMockData(cityName = "Preview City") {
-            console.warn("Backend Error: Loading Demo Data.");
-            els.demoBadge.style.display = 'block'; // Show Demo Badge
+            // Only warn, don't error, to keep console clean
+            console.warn(`Preview Mode: Loaded demo data for ${cityName}`);
+            els.demoBadge.style.display = 'block'; 
             
-            // Generate a 'random' but consistent temperature based on city name characters
-            // This ensures "London" looks different from "Paris"
+            // Unique-ish data based on city name length/chars
             let hash = 0;
             for (let i = 0; i < cityName.length; i++) {
                 hash = cityName.charCodeAt(i) + ((hash << 5) - hash);
             }
-            const baseTemp = Math.abs(hash % 30) + 5; // Temp between 5 and 35
+            const baseTemp = Math.abs(hash % 30) + 5; 
             
             const now = Date.now() / 1000;
             const mockCurrent = {
@@ -240,7 +240,7 @@
             // Mock AI
             els.aiLoading.classList.remove('hidden');
             setTimeout(() => {
-                const mockAdvice = `(Demo) We couldn't connect to the server, so here is a guess for ${cityName}: Looks like a great day!`;
+                const mockAdvice = `(Demo) Since this is a preview, here is a guess for ${cityName}: Looks like a great day to deploy your code!`;
                 typeWriter(mockAdvice);
             }, 1000);
         }
@@ -336,7 +336,15 @@
 
         // --- 4. Main Logic ---
         async function searchCity(city) {
-            // Try fetching from backend
+            // DETECT PREVIEW ENVIRONMENT:
+            // If we are in a blob/preview url, we CANNOT fetch from /.netlify/
+            // because there is no backend here. We skip straight to mock data
+            // to avoid the "Failed to parse URL" error.
+            if (window.location.protocol === 'blob:' || window.location.href.includes('blob:')) {
+                loadMockData(city);
+                return;
+            }
+
             const apiUrl = `/.netlify/functions/fetch-weather?city=${city}`;
             try {
                 const res = await fetch(apiUrl);
@@ -345,18 +353,22 @@
                 const data = await res.json();
                 
                 // If we get here, data is REAL
-                els.demoBadge.style.display = 'none'; // Hide demo badge
+                els.demoBadge.style.display = 'none'; 
                 updateWeatherUI(data.current, data.daily);
                 getGeminiAdvice(city, data.current.temperature.current, data.current.condition.description);
 
             } catch(e) {
-                // If backend fails, load smart mock data
-                console.error("Fetch failed:", e);
+                console.warn("Fetch failed (Expected in local/preview):", e.message);
                 loadMockData(city);
             }
         }
 
         async function getGeminiAdvice(city, temp, desc) {
+            // Same check for AI
+            if (window.location.protocol === 'blob:' || window.location.href.includes('blob:')) {
+                return; // Mock data already handles advice
+            }
+
             els.aiContent.innerText = "Asking the clouds...";
             els.aiLoading.classList.remove('hidden');
             try {
@@ -369,7 +381,7 @@
                 const data = await res.json();
                 typeWriter(data.advice || "Enjoy the day!");
             } catch(e) {
-                 typeWriter("AI unavailable. Check API keys.");
+                 typeWriter("AI unavailable in preview.");
             }
         }
 
