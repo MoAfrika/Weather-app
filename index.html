@@ -2,386 +2,746 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aurora Weather AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Aurora Weather OS</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons (Lucide) - Explicit UMD Build -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: 'rgba(255, 255, 255, 0.08)',
+                        glassBorder: 'rgba(255, 255, 255, 0.12)',
+                        glassHigh: 'rgba(255, 255, 255, 0.15)',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        /* --- 1. Custom Color Palette & Global Styles --- */
-        :root {
-            --bg-gradient-start: #0f172a; /* Slate 900 */
-            --bg-gradient-mid: #312e81;   /* Indigo 900 */
-            --bg-gradient-end: #4c1d95;   /* Violet 900 */
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-        }
-
+        /* Global Reset & Base */
         body {
-            font-family: 'Outfit', sans-serif;
-            background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
-            min-height: 100vh;
-            color: white;
-            overflow-x: hidden;
+            background-color: #0f172a;
+            color: #ffffff;
+            overflow: hidden; /* App-like feel */
         }
 
-        /* --- 2. Glassmorphism Utilities --- */
-        .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
+        /* Dynamic Gradients based on Weather */
+        .bg-gradient-clear { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); }
+        .bg-gradient-cloudy { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
+        .bg-gradient-rain { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .bg-gradient-hot { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); }
+        .bg-gradient-night { background: linear-gradient(135deg, #020617 0%, #1e1b4b 100%); }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
         }
 
-        /* --- 3. Custom Scrollbar --- */
+        /* Custom Scrollbar */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* --- 4. Animations --- */
-        .fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        .delay-300 { animation-delay: 0.3s; }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .spinner {
-            border: 3px solid rgba(255,255,255,0.1);
-            border-left-color: #f472b6;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        path.weather-line {
-            stroke-dasharray: 1000;
-            stroke-dashoffset: 1000;
-            animation: drawLine 2s ease-out forwards;
-        }
-        @keyframes drawLine { to { stroke-dashoffset: 0; } }
-
-        /* Error Banner */
-        #error-banner {
-            display: none;
+        /* Weather Canvas */
+        #weather-canvas {
             position: absolute;
-            top: 0; left: 0; right: 0;
-            background: #ef4444;
-            color: white;
-            text-align: center;
-            padding: 8px;
-            font-size: 0.8rem;
-            z-index: 100;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        /* Typography & Utilities */
+        .text-shadow-sm { text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .text-shadow-lg { text-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        
+        /* Input Reset */
+        input:focus { outline: none; }
+        
+        /* Loading Skeleton Animation */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
 </head>
-<body class="flex items-center justify-center p-0 sm:p-4 h-screen overflow-hidden">
+<body class="relative h-screen w-screen flex items-center justify-center bg-gray-900 transition-colors duration-1000 ease-in-out" id="app-body">
 
-    <!-- Mobile-like Container -->
-    <div class="w-full max-w-md h-full sm:h-[90vh] sm:aspect-[9/19] bg-white/5 sm:rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col border border-white/10">
+    <!-- Ambient Canvas Layer -->
+    <canvas id="weather-canvas"></canvas>
+
+    <!-- App Container (Mobile Aspect Ratio Preserved on Desktop) -->
+    <div class="relative w-full h-full md:max-w-[420px] md:h-[90vh] md:rounded-[40px] md:border md:border-white/10 overflow-hidden flex flex-col z-10 shadow-2xl bg-black/20 backdrop-blur-sm">
         
-        <!-- Error Banner -->
-        <div id="error-banner"></div>
-
-        <!-- Background Decor -->
-        <div class="absolute top-[-100px] right-[-100px] w-64 h-64 bg-pink-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
-        <div class="absolute bottom-[-100px] left-[-100px] w-64 h-64 bg-cyan-500 rounded-full blur-[100px] opacity-30 pointer-events-none z-0"></div>
-
-        <!-- === Header === -->
-        <header class="relative z-20 flex-none flex justify-between items-center p-6 pb-2 bg-gradient-to-b from-[#0f172a]/80 to-transparent">
-            <div class="flex flex-col">
-                <h1 id="city-name" class="text-2xl font-bold tracking-wide drop-shadow-md">Loading...</h1>
-                <p id="current-date" class="text-sm text-white/70">Updating...</p>
+        <!-- Header / Search -->
+        <header class="flex-none px-6 pt-12 pb-4 flex justify-between items-center z-20">
+            <div class="flex flex-col cursor-pointer group" onclick="toggleSearch()">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-white/70 group-hover:text-white transition-colors"></i>
+                    <h1 id="city-name" class="text-xl font-bold tracking-tight text-shadow-sm">Locating...</h1>
+                </div>
+                <p id="current-date" class="text-xs text-white/50 font-medium pl-6">Updating...</p>
             </div>
-            <button id="search-toggle" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition backdrop-blur-md shadow-lg border border-white/10">
-                <i class="fa-solid fa-magnifying-glass"></i>
+            <button onclick="toggleSearch()" class="w-10 h-10 rounded-full glass-card flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all">
+                <i data-lucide="search" class="w-5 h-5"></i>
             </button>
         </header>
 
         <!-- Search Overlay -->
-        <div id="search-bar" class="hidden absolute top-20 left-6 right-6 z-50 fade-in-up">
-            <form id="search-form" class="flex gap-2">
-                <input type="text" id="search-input" placeholder="Search a city..." class="flex-1 bg-slate-900/95 text-white px-4 py-3 rounded-2xl border border-white/20 focus:outline-none focus:border-pink-500 shadow-2xl backdrop-blur-xl">
-                <button type="submit" class="bg-pink-500 px-5 rounded-2xl font-bold hover:bg-pink-600 transition shadow-lg">Go</button>
+        <div id="search-overlay" class="absolute inset-0 bg-black/60 backdrop-blur-xl z-50 transform translate-y-full transition-transform duration-300 flex flex-col p-6">
+            <div class="flex justify-end mb-8">
+                <button onclick="toggleSearch()" class="p-2 rounded-full bg-white/10 hover:bg-white/20">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <h2 class="text-2xl font-bold mb-4">Find City</h2>
+            <form onsubmit="handleSearch(event)" class="relative">
+                <input type="text" id="search-input" placeholder="Search global..." class="w-full bg-white/10 border border-white/10 rounded-2xl px-5 py-4 text-lg text-white placeholder-white/30 focus:border-white/30 focus:bg-white/15 transition-all">
+                <button type="submit" class="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-500 p-2 rounded-xl text-white shadow-lg shadow-blue-500/30">
+                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
             </form>
+            <div id="recent-searches" class="mt-8 flex flex-col gap-2">
+                <!-- Recent searches populated by JS -->
+            </div>
         </div>
 
-        <!-- === Main Scrollable Area === -->
-        <main class="flex-1 overflow-y-auto overflow-x-hidden relative z-10 hide-scrollbar pb-8">
+        <!-- Main Scrollable Content -->
+        <main class="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar pb-10 px-6 relative space-y-6">
             
             <!-- Hero Section -->
-            <section class="relative px-6 pt-4 pb-6 flex flex-col items-start fade-in-up delay-100">
-                <div class="flex justify-between w-full items-center">
+            <section class="flex flex-col items-center justify-center pt-2 pb-6 animate-slide-up" style="animation-delay: 0.1s;">
+                <div class="relative w-48 h-48 flex items-center justify-center">
+                    <!-- Glow effect -->
+                    <div class="absolute inset-0 bg-white/20 rounded-full blur-[60px] opacity-40 animate-pulse-slow"></div>
+                    <img id="weather-icon" src="" alt="Weather" class="w-40 h-40 object-contain drop-shadow-2xl animate-float relative z-10 filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
+                </div>
+                
+                <div class="flex flex-col items-center -mt-4">
+                    <h1 class="text-[6.5rem] font-bold leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 drop-shadow-lg" id="temp-display">--°</h1>
+                    <p id="condition-display" class="text-xl font-medium text-white/90 capitalize tracking-wide mt-2 px-4 py-1 rounded-full glass-card border-none bg-white/5">Loading...</p>
+                </div>
+
+                <div class="flex gap-6 mt-6 text-sm font-medium text-white/60">
+                    <span class="flex items-center gap-1"><i data-lucide="arrow-up" class="w-3 h-3"></i> <span id="temp-max">--</span>°</span>
+                    <span class="flex items-center gap-1"><i data-lucide="arrow-down" class="w-3 h-3"></i> <span id="temp-min">--</span>°</span>
+                    <span class="flex items-center gap-1"><i data-lucide="wind" class="w-3 h-3"></i> <span id="wind-speed">--</span> km/h</span>
+                </div>
+            </section>
+
+            <!-- AI Insight (Simulated) -->
+            <section class="glass-card rounded-3xl p-5 animate-slide-up relative overflow-hidden group" style="animation-delay: 0.2s;">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-purple-500/30 rounded-full blur-2xl group-hover:bg-purple-500/50 transition-all duration-500"></div>
+                <div class="flex items-start gap-3 relative z-10">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xs font-bold text-purple-200 uppercase tracking-wider mb-1">Aurora AI Insight</h3>
+                        <p id="ai-text" class="text-sm leading-relaxed text-white/90 font-light">Analyzing atmospheric patterns...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hourly Forecast (Graph + Scroll) -->
+            <section class="glass-card rounded-3xl p-5 animate-slide-up" style="animation-delay: 0.3s;">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-white/70 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-4 h-4"></i> Hourly
+                    </h3>
+                    <span class="text-xs text-white/40">24h Trend</span>
+                </div>
+                
+                <!-- SVG Graph Container -->
+                <div class="h-[80px] w-full relative mb-4">
+                    <svg id="temp-graph" class="w-full h-full overflow-visible" preserveAspectRatio="none">
+                        <!-- Path injected by JS -->
+                    </svg>
+                </div>
+
+                <!-- Scrollable Times -->
+                <div id="hourly-scroll" class="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+                    <!-- Injected by JS -->
+                </div>
+            </section>
+
+            <!-- Bento Grid Stats -->
+            <section class="grid grid-cols-2 gap-4 animate-slide-up" style="animation-delay: 0.4s;">
+                <!-- UV Index -->
+                <div class="glass-card rounded-3xl p-4 flex flex-col justify-between aspect-[4/3] relative overflow-hidden">
+                    <div class="absolute right-0 bottom-0 w-16 h-16 bg-yellow-500/20 rounded-full blur-xl"></div>
+                    <div class="flex items-center gap-2 text-white/60 mb-2">
+                        <i data-lucide="sun" class="w-4 h-4"></i>
+                        <span class="text-xs font-semibold uppercase">UV Index</span>
+                    </div>
                     <div>
-                        <div class="flex items-start">
-                            <span id="temperature" class="text-[6rem] leading-none font-light tracking-tighter drop-shadow-xl">--</span>
-                            <span class="text-4xl mt-4 font-light">°</span>
+                        <span id="uv-val" class="text-3xl font-bold">--</span>
+                        <p id="uv-text" class="text-xs text-white/60 mt-1">Moderate</p>
+                    </div>
+                    <!-- Progress Bar -->
+                    <div class="w-full h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
+                        <div id="uv-bar" class="h-full bg-gradient-to-r from-green-400 to-red-500 w-0 transition-all duration-1000"></div>
+                    </div>
+                </div>
+
+                <!-- Humidity -->
+                <div class="glass-card rounded-3xl p-4 flex flex-col justify-between aspect-[4/3] relative overflow-hidden">
+                    <div class="absolute right-0 bottom-0 w-16 h-16 bg-blue-500/20 rounded-full blur-xl"></div>
+                    <div class="flex items-center gap-2 text-white/60 mb-2">
+                        <i data-lucide="droplets" class="w-4 h-4"></i>
+                        <span class="text-xs font-semibold uppercase">Humidity</span>
+                    </div>
+                    <div>
+                        <span id="humidity-val" class="text-3xl font-bold">--%</span>
+                        <p id="dew-point" class="text-xs text-white/60 mt-1">Dew point: --°</p>
+                    </div>
+                </div>
+
+                <!-- Sunrise/Sunset -->
+                <div class="glass-card rounded-3xl p-4 flex flex-col justify-between col-span-2 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                         <div class="flex items-center gap-2 text-white/60">
+                            <i data-lucide="horizon" class="w-4 h-4"></i>
+                            <span class="text-xs font-semibold uppercase">Sun Path</span>
                         </div>
-                        <p id="condition" class="text-xl text-pink-300 font-medium capitalize mt-1 drop-shadow-md">...</p>
-                        <div class="mt-2 text-sm text-white/60 flex gap-3 font-medium">
-                            <span>H: <span id="temp-high">--</span>°</span>
-                            <span>L: <span id="temp-low">--</span>°</span>
-                        </div>
                     </div>
-                    <div class="relative">
-                        <div class="absolute inset-0 bg-white/20 blur-xl rounded-full"></div>
-                        <img id="weather-icon" src="https://shecodes-assets.s3.amazonaws.com/api/weather/icons/clear-sky-day.png" alt="Weather Icon" class="w-32 h-32 relative z-10 drop-shadow-2xl object-contain">
+                    <div class="flex justify-between items-end relative h-16 w-full">
+                        <!-- Arc drawn by CSS/SVG -->
+                         <svg class="absolute bottom-0 left-0 w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="none">
+                            <path d="M10,80 Q100,10 190,80" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2" stroke-dasharray="4 4" />
+                            <circle id="sun-position" cx="10" cy="80" r="6" fill="#fbbf24" class="shadow-[0_0_10px_#fbbf24]" />
+                         </svg>
+                         <div class="flex flex-col z-10">
+                            <span class="text-xs text-white/50">Rise</span>
+                            <span id="sunrise-val" class="text-sm font-bold">--:--</span>
+                         </div>
+                         <div class="flex flex-col items-end z-10">
+                            <span class="text-xs text-white/50">Set</span>
+                            <span id="sunset-val" class="text-sm font-bold">--:--</span>
+                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Hourly Section -->
-            <section class="glass-panel mx-4 mb-4 p-5 fade-in-up delay-200 shadow-lg">
-                <h3 class="text-sm font-semibold text-white/80 mb-3 ml-1 flex items-center gap-2">
-                    <i class="fa-regular fa-clock text-pink-400"></i> Hourly Forecast
+            <!-- 7-Day Forecast -->
+            <section class="glass-card rounded-3xl p-5 animate-slide-up mb-8" style="animation-delay: 0.5s;">
+                 <h3 class="text-sm font-semibold text-white/70 mb-4 flex items-center gap-2">
+                    <i data-lucide="calendar-days" class="w-4 h-4"></i> 7-Day Forecast
                 </h3>
-                <div id="hourly-container" class="flex overflow-x-auto gap-4 hide-scrollbar pb-2 px-1">
-                    <div class="text-sm text-white/50">Loading...</div>
+                <div id="daily-container" class="space-y-4">
+                    <!-- Injected by JS -->
                 </div>
             </section>
 
-            <!-- Weekly Section -->
-            <section class="glass-panel mx-4 mb-4 p-5 fade-in-up delay-300 relative overflow-hidden shadow-lg min-h-[160px]">
-                <h3 class="text-sm font-semibold text-white/80 mb-4 ml-1 flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-week text-pink-400"></i> The Weekly Scoop
-                </h3>
-                <svg id="forecast-graph" class="absolute top-[80px] left-0 w-full h-[60px] pointer-events-none z-0 opacity-50" preserveAspectRatio="none"></svg>
-                <div id="forecast-container" class="grid grid-cols-5 gap-2 relative z-10 text-center">
-                     <div class="col-span-5 text-sm text-white/50">Loading...</div>
-                </div>
-            </section>
+            <footer class="text-center text-xs text-white/30 pb-4">
+                Powered by Open-Meteo & Gemini Logic
+            </footer>
 
-            <!-- AI Section -->
-            <section class="glass-panel mx-4 p-6 fade-in-up delay-300 flex flex-col relative overflow-hidden mb-8 shadow-lg min-h-[140px]">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 text-pink-300">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        <span class="text-sm font-bold uppercase tracking-wider">AI Insight</span>
-                    </div>
-                    <div id="ai-loading" class="hidden spinner"></div>
-                </div>
-                <div id="ai-content" class="text-lg leading-relaxed text-white/90 font-light relative z-10">
-                    Initializing...
-                </div>
-                <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
-            </section>
-
-            <div class="h-4"></div>
         </main>
     </div>
 
-    <!-- === JavaScript === -->
+    <!-- Scripts -->
     <script>
-        // --- DOM Elements ---
-        const els = {
-            city: document.querySelector("#city-name"),
-            date: document.querySelector("#current-date"),
-            temp: document.querySelector("#temperature"),
-            condition: document.querySelector("#condition"),
-            high: document.querySelector("#temp-high"),
-            low: document.querySelector("#temp-low"),
-            icon: document.querySelector("#weather-icon"),
-            hourly: document.querySelector("#hourly-container"),
-            forecast: document.querySelector("#forecast-container"),
-            graph: document.querySelector("#forecast-graph"),
-            aiContent: document.querySelector("#ai-content"),
-            aiLoading: document.querySelector("#ai-loading"),
-            searchForm: document.querySelector("#search-form"),
-            searchInput: document.querySelector("#search-input"),
-            searchToggle: document.querySelector("#search-toggle"),
-            searchBar: document.querySelector("#search-bar"),
-            errorBanner: document.querySelector("#error-banner")
+        // --- CONFIG & STATE ---
+        const state = {
+            lat: -25.7449, // Default: Pretoria
+            lon: 28.1879,
+            city: "Pretoria",
+            units: "metric", // metric or imperial
+            weatherData: null,
+            geoData: null
         };
 
-        // --- UI Logic ---
-        function formatDate(timestamp) {
-            const date = new Date(timestamp * 1000);
-            return date.toLocaleDateString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+        // DOM Elements
+        const els = {
+            body: document.getElementById('app-body'),
+            city: document.getElementById('city-name'),
+            date: document.getElementById('current-date'),
+            temp: document.getElementById('temp-display'),
+            condition: document.getElementById('condition-display'),
+            icon: document.getElementById('weather-icon'),
+            tempMax: document.getElementById('temp-max'),
+            tempMin: document.getElementById('temp-min'),
+            wind: document.getElementById('wind-speed'),
+            aiText: document.getElementById('ai-text'),
+            hourlyScroll: document.getElementById('hourly-scroll'),
+            graph: document.getElementById('temp-graph'),
+            dailyContainer: document.getElementById('daily-container'),
+            uvVal: document.getElementById('uv-val'),
+            uvText: document.getElementById('uv-text'),
+            uvBar: document.getElementById('uv-bar'),
+            humidity: document.getElementById('humidity-val'),
+            dewPoint: document.getElementById('dew-point'),
+            sunrise: document.getElementById('sunrise-val'),
+            sunset: document.getElementById('sunset-val'),
+            searchOverlay: document.getElementById('search-overlay'),
+            searchInput: document.getElementById('search-input'),
+            sunPos: document.getElementById('sun-position')
+        };
+
+        // --- PARTICLE SYSTEM (Canvas) ---
+        const canvas = document.getElementById('weather-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationId;
+        let weatherType = 'clear'; // clear, rain, snow, cloudy
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(type) {
+                this.type = type;
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height - canvas.height;
+                
+                if (this.type === 'rain') {
+                    this.vy = Math.random() * 5 + 10;
+                    this.vx = (Math.random() - 0.5) * 1;
+                    this.len = Math.random() * 10 + 10;
+                    this.color = `rgba(200, 220, 255, ${Math.random() * 0.2 + 0.1})`;
+                } else if (this.type === 'snow') {
+                    this.vy = Math.random() * 2 + 1;
+                    this.vx = (Math.random() - 0.5) * 2;
+                    this.size = Math.random() * 3 + 1;
+                    this.color = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.3})`;
+                } else if (this.type === 'cloud') {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * (canvas.height / 2); // Top half
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = 0;
+                    this.size = Math.random() * 100 + 50;
+                    this.color = `rgba(255, 255, 255, ${Math.random() * 0.05})`;
+                }
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.type === 'rain' || this.type === 'snow') {
+                    if (this.y > canvas.height) this.reset();
+                } else if (this.type === 'cloud') {
+                    if (this.x > canvas.width + 100) this.x = -100;
+                    if (this.x < -100) this.x = canvas.width + 100;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color;
+
+                if (this.type === 'rain') {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + this.vx, this.y + this.len);
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                } else if (this.type === 'snow') {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 'cloud') {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
         }
 
-        function getDayName(timestamp) {
-            return new Date(timestamp * 1000).toLocaleDateString('en-US', { weekday: 'short' });
+        function initParticles(type) {
+            weatherType = type;
+            particles = [];
+            const count = type === 'rain' ? 200 : type === 'snow' ? 100 : type === 'cloud' ? 20 : 0;
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(type));
+            }
         }
 
-        function drawGraph(temps) {
-            if (!els.forecast || temps.length === 0) return;
-            const width = els.forecast.offsetWidth || 300; 
-            const height = 60;
-            const max = Math.max(...temps) + 2;
-            const min = Math.min(...temps) - 2;
-            const colWidth = width / 5;
-            
-            let d = "";
-            temps.forEach((t, i) => {
-                const x = (colWidth * i) + (colWidth / 2);
-                const y = height - ((t - min) / (max - min)) * height;
-                d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
             });
-            els.graph.innerHTML = `<path d="${d}" fill="none" stroke="#f472b6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="weather-line" />`;
+            animationId = requestAnimationFrame(animateParticles);
         }
 
-        function updateWeatherUI(current, daily) {
-            if(!current) return;
+        // --- WEATHER LOGIC ---
+
+        const wmoCodes = {
+            0: { desc: "Clear Sky", icon: "sun", type: "clear", theme: "bg-gradient-clear" },
+            1: { desc: "Mainly Clear", icon: "sun-dim", type: "clear", theme: "bg-gradient-clear" },
+            2: { desc: "Partly Cloudy", icon: "cloud-sun", type: "cloud", theme: "bg-gradient-cloudy" },
+            3: { desc: "Overcast", icon: "cloud", type: "cloud", theme: "bg-gradient-cloudy" },
+            45: { desc: "Fog", icon: "cloud-fog", type: "cloud", theme: "bg-gradient-night" },
+            48: { desc: "Depositing Rime Fog", icon: "cloud-fog", type: "cloud", theme: "bg-gradient-night" },
+            51: { desc: "Light Drizzle", icon: "cloud-drizzle", type: "rain", theme: "bg-gradient-rain" },
+            53: { desc: "Moderate Drizzle", icon: "cloud-drizzle", type: "rain", theme: "bg-gradient-rain" },
+            55: { desc: "Dense Drizzle", icon: "cloud-rain", type: "rain", theme: "bg-gradient-rain" },
+            61: { desc: "Slight Rain", icon: "cloud-rain", type: "rain", theme: "bg-gradient-rain" },
+            63: { desc: "Moderate Rain", icon: "cloud-rain", type: "rain", theme: "bg-gradient-rain" },
+            65: { desc: "Heavy Rain", icon: "cloud-lightning", type: "rain", theme: "bg-gradient-rain" },
+            71: { desc: "Slight Snow", icon: "snowflake", type: "snow", theme: "bg-gradient-cloudy" },
+            73: { desc: "Moderate Snow", icon: "snowflake", type: "snow", theme: "bg-gradient-cloudy" },
+            75: { desc: "Heavy Snow", icon: "snowflake", type: "snow", theme: "bg-gradient-cloudy" },
+            95: { desc: "Thunderstorm", icon: "zap", type: "rain", theme: "bg-gradient-night" }
+        };
+
+        function getWmoInfo(code) {
+            return wmoCodes[code] || wmoCodes[0];
+        }
+
+        // Helper: Date Formatting
+        function formatTime(isoString) {
+            return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        function getDayName(isoString) {
+            return new Date(isoString).toLocaleDateString([], { weekday: 'short' });
+        }
+
+        // --- AI LOGIC (Client-Side Heuristics) ---
+        function generateAuroraInsight(current, daily, codeInfo) {
+            const temp = current.temperature_2m;
+            const wind = current.wind_speed_10m;
+            const desc = codeInfo.desc.toLowerCase();
+            const isNight = current.is_day === 0;
+
+            const insights = [
+                { cond: temp > 30, text: "It's officially 'melting pavement' weather. Hydrate or evaporate." },
+                { cond: temp < 5, text: "Brass monkeys are worried. Wear layers upon layers." },
+                { cond: desc.includes("rain"), text: "Free car wash today. Don't forget the umbrella." },
+                { cond: desc.includes("thunder"), text: "Thor is bowling. Stay inside and charge your phone." },
+                { cond: desc.includes("clear") && isNight, text: "Perfect stargazing conditions. Look up, not down at your phone." },
+                { cond: desc.includes("clear") && !isNight, text: "Solar power optimum. Go photosynthesize." },
+                { cond: wind > 20, text: "Hold onto your hat. Literally. It's windy." },
+                { cond: true, text: `Current mood: ${desc}. Temperature: reasonable.` } // Default
+            ];
+
+            return insights.find(i => i.cond).text;
+        }
+
+        // --- API & DATA HANDLING ---
+
+        async function fetchWeather() {
+            els.condition.innerText = "Scanning skies...";
             
-            els.city.innerText = current.city;
-            els.date.innerText = formatDate(current.time);
-            els.temp.innerText = Math.round(current.temperature.current);
-            els.condition.innerText = current.condition.description;
-            els.icon.src = current.condition.icon_url;
-            
-            if(daily && daily.length) {
-                els.high.innerText = Math.round(daily[0].temperature.maximum);
-                els.low.innerText = Math.round(daily[0].temperature.minimum);
-            }
-
-            // Hourly (Simulated from Current)
-            let hHtml = "";
-            const startHour = new Date(current.time * 1000).getHours();
-            for(let i=0; i<6; i++) {
-                // Variation based on index to look dynamic but consistent
-                let t = Math.round(current.temperature.current + (Math.sin(i) * 2));
-                hHtml += `
-                    <div class="flex flex-col items-center min-w-[60px] bg-white/5 rounded-xl py-2 border border-white/5">
-                        <span class="text-xs text-white/70 mb-1">${(startHour+i)%24}:00</span>
-                        <img src="${current.condition.icon_url}" class="w-6 h-6 mb-1 opacity-90">
-                        <span class="font-bold text-md">${t}°</span>
-                    </div>`;
-            }
-            els.hourly.innerHTML = hHtml;
-
-            // Weekly
-            let wHtml = "";
-            let graphTemps = [];
-            if(daily) {
-                daily.slice(0, 5).forEach(day => {
-                    let t = Math.round(day.temperature.day);
-                    graphTemps.push(t);
-                    wHtml += `
-                        <div class="flex flex-col items-center justify-between h-full py-2 z-10">
-                            <span class="text-xs font-medium text-white/70">${getDayName(day.time)}</span>
-                            <img src="${day.condition.icon_url}" class="w-8 h-8 my-1 opacity-90 drop-shadow-md">
-                            <span class="font-bold text-lg">${t}°</span>
-                        </div>`;
-                });
-            }
-            els.forecast.innerHTML = wHtml;
-            setTimeout(() => drawGraph(graphTemps), 100);
-        }
-
-        function typeWriter(text) {
-            els.aiContent.innerText = "";
-            let i = 0;
-            els.aiLoading.classList.add('hidden');
-            function type() {
-                if(i < text.length) {
-                    els.aiContent.innerText += text.charAt(i);
-                    i++;
-                    setTimeout(type, 30);
-                }
-            }
-            type();
-        }
-
-        function showError(msg) {
-            els.errorBanner.innerText = msg;
-            els.errorBanner.style.display = 'block';
-            setTimeout(() => { els.errorBanner.style.display = 'none'; }, 5000);
-        }
-
-        // --- Main Data Logic ---
-        async function searchCity(city) {
-            // Encode city to handle spaces (e.g., "New York")
-            const safeCity = encodeURIComponent(city);
-            const apiUrl = `/.netlify/functions/fetch-weather?city=${safeCity}`;
-            
-            els.errorBanner.style.display = 'none'; // Clear errors
-
             try {
-                const res = await fetch(apiUrl);
-                
-                if (!res.ok) {
-                    // Attempt to read the error message from the JSON response
-                    let errMsg = `Server Error: ${res.status}`;
-                    try {
-                        const errData = await res.json();
-                        if (errData.error) errMsg = errData.error;
-                    } catch(e) {}
-                    
-                    throw new Error(errMsg);
-                }
-                
+                // Fetch Geo info for exact name if not set
+                const params = new URLSearchParams({
+                    latitude: state.lat,
+                    longitude: state.lon,
+                    current: "temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m,pressure_msl",
+                    hourly: "temperature_2m,weather_code,visibility",
+                    daily: "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max",
+                    timezone: "auto"
+                });
+
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+                if (!res.ok) throw new Error("Weather data unreachable");
                 const data = await res.json();
                 
-                if(!data.current) {
-                    throw new Error("Invalid data format received");
-                }
-                
-                // DATA LOADED SUCCESSFULLY
-                updateWeatherUI(data.current, data.daily);
-                getGeminiAdvice(city, data.current.temperature.current, data.current.condition.description);
+                state.weatherData = data;
+                updateUI(data);
 
-            } catch(e) {
-                console.error("Weather Fetch Error:", e);
-                // SHOW ERROR ON SCREEN so you know why it failed
-                showError(`Error: ${e.message}. (Check Netlify Logs)`);
-                
-                // DO NOT load demo data here automatically. 
-                // This way you know for sure if the connection failed.
-                els.city.innerText = "Error";
-                els.condition.innerText = "Connection Failed";
-                els.temp.innerText = "--";
+            } catch (error) {
+                console.error(error);
+                els.condition.innerText = "Connection lost.";
+                alert("Failed to fetch weather data. Please try again.");
             }
         }
 
-        async function getGeminiAdvice(city, temp, desc) {
-            els.aiContent.innerText = "Asking the clouds...";
-            els.aiLoading.classList.remove('hidden');
-            try {
-                const res = await fetch('/.netlify/functions/fetch-advice', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({query: `Weather in ${city} is ${temp}C, ${desc}. Short advice.`})
+        function updateUI(data) {
+            const current = data.current;
+            const daily = data.daily;
+            const hourly = data.hourly;
+            const wmo = getWmoInfo(current.weather_code);
+
+            // 1. Theme & Background
+            els.body.className = `relative h-screen w-screen flex items-center justify-center transition-colors duration-1000 ease-in-out ${wmo.theme}`;
+            if(current.is_day === 0) els.body.className = `relative h-screen w-screen flex items-center justify-center transition-colors duration-1000 ease-in-out bg-gradient-night`;
+            
+            // Particles
+            initParticles(wmo.type);
+            if (!animationId) animateParticles();
+
+            // 2. Hero Section
+            els.city.innerText = state.city;
+            els.date.innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            els.temp.innerText = `${Math.round(current.temperature_2m)}°`;
+            els.condition.innerText = wmo.desc;
+            els.tempMax.innerText = Math.round(daily.temperature_2m_max[0]);
+            els.tempMin.innerText = Math.round(daily.temperature_2m_min[0]);
+            els.wind.innerText = Math.round(current.wind_speed_10m);
+
+            // Dynamic Icon (Lucide doesn't have huge colored icons, so we use an external set or styles)
+            // For slickness, we will use a high-quality external image source based on code
+            // Fallback to a clean set
+            const iconMap = {
+                'clear': 'https://cdn-icons-png.flaticon.com/512/869/869869.png', // Sun
+                'cloud': 'https://cdn-icons-png.flaticon.com/512/1146/1146869.png', // Cloud
+                'rain': 'https://cdn-icons-png.flaticon.com/512/1163/1163657.png', // Rain
+                'snow': 'https://cdn-icons-png.flaticon.com/512/642/642000.png', // Snow
+                'night': 'https://cdn-icons-png.flaticon.com/512/592/592317.png' // Moon
+            };
+            
+            let iconUrl = iconMap[wmo.type];
+            if (current.is_day === 0 && wmo.type === 'clear') iconUrl = iconMap['night'];
+            els.icon.src = iconUrl;
+
+
+            // 3. AI Insight
+            els.aiText.innerText = generateAuroraInsight(current, daily, wmo);
+
+            // 4. Hourly Graph & Scroll
+            renderHourly(hourly, current.time);
+
+            // 5. Bento Stats
+            const uv = daily.uv_index_max[0];
+            els.uvVal.innerText = uv;
+            els.uvText.innerText = uv < 3 ? "Low" : uv < 6 ? "Moderate" : uv < 8 ? "High" : "Very High";
+            els.uvBar.style.width = `${Math.min((uv / 11) * 100, 100)}%`;
+            
+            els.humidity.innerText = `${current.relative_humidity_2m}%`;
+            // Calculate pseudo dew point
+            const dew = Math.round(current.temperature_2m - ((100 - current.relative_humidity_2m) / 5));
+            els.dewPoint.innerText = `Dew Point: ${dew}°`;
+
+            els.sunrise.innerText = formatTime(daily.sunrise[0]);
+            els.sunset.innerText = formatTime(daily.sunset[0]);
+
+            // Sun Position Animation
+            updateSunPosition(daily.sunrise[0], daily.sunset[0]);
+
+            // 6. 7-Day Forecast
+            renderDaily(daily);
+
+            // Re-init Icons
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderHourly(hourly, currentTimeStr) {
+            const currentHourIndex = hourly.time.findIndex(t => t >= currentTimeStr) || 0;
+            const next24 = hourly.time.slice(currentHourIndex, currentHourIndex + 24);
+            const temps = hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
+            const codes = hourly.weather_code.slice(currentHourIndex, currentHourIndex + 24);
+
+            // Scroll Elements
+            let html = '';
+            next24.forEach((t, i) => {
+                const hour = new Date(t).getHours();
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const h12 = hour % 12 || 12;
+                const iconName = getWmoInfo(codes[i]).icon;
+                
+                html += `
+                    <div class="flex flex-col items-center gap-2 min-w-[50px]">
+                        <span class="text-xs text-white/50">${h12}${ampm}</span>
+                        <i data-lucide="${iconName}" class="w-5 h-5 text-white/80"></i>
+                        <span class="text-sm font-bold">${Math.round(temps[i])}°</span>
+                    </div>
+                `;
+            });
+            els.hourlyScroll.innerHTML = html;
+
+            // SVG Graph
+            if (temps.length > 0) {
+                const min = Math.min(...temps) - 2;
+                const max = Math.max(...temps) + 2;
+                const range = max - min;
+                const width = 1000; // virtual width
+                const height = 100; // virtual height
+                const step = width / (temps.length - 1);
+
+                let pathD = `M0,${height} `; // Start bottom left
+                
+                temps.forEach((t, i) => {
+                    const x = i * step;
+                    const y = height - ((t - min) / range) * height;
+                    pathD += `L${x},${y} `;
                 });
-                
-                if(!res.ok) {
-                     throw new Error(`AI Error: ${res.status}`);
-                }
-                
-                const data = await res.json();
-                typeWriter(data.advice || "Enjoy the weather!");
-            } catch(e) {
-                 console.error(e);
-                 typeWriter("AI Service unavailable. Check your Gemini API Key in Netlify.");
+
+                pathD += `L${width},${height} Z`; // Close path
+
+                // Gradient Stroke Logic not fully supported in simple path d, so we use fill with opacity
+                els.graph.innerHTML = `
+                    <defs>
+                        <linearGradient id="graphGradient" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.4)" />
+                            <stop offset="100%" stop-color="rgba(255, 255, 255, 0)" />
+                        </linearGradient>
+                    </defs>
+                    <path d="${pathD}" fill="url(#graphGradient)" stroke="rgba(255,255,255,0.6)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+                `;
             }
         }
 
-        // --- Event Listeners ---
-        els.searchToggle.addEventListener('click', () => {
-            els.searchBar.classList.toggle('hidden');
-            if(!els.searchBar.classList.contains('hidden')) els.searchInput.focus();
-        });
+        function renderDaily(daily) {
+            let html = '';
+            for(let i=1; i<daily.time.length; i++) { // Start from tomorrow
+                const dayName = getDayName(daily.time[i]);
+                const min = Math.round(daily.temperature_2m_min[i]);
+                const max = Math.round(daily.temperature_2m_max[i]);
+                const code = daily.weather_code[i];
+                const info = getWmoInfo(code);
 
-        els.searchForm.addEventListener('submit', (e) => {
+                // Progress Bar for temp range
+                const rangeTotal = 40; // Assume -10 to 30 range generally
+                const leftPos = ((min + 10) / rangeTotal) * 100;
+                const width = ((max - min) / rangeTotal) * 100;
+
+                html += `
+                    <div class="grid grid-cols-[50px_1fr_1fr] items-center gap-4 py-2 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors rounded-lg px-2">
+                        <span class="text-sm font-medium text-white/80">${dayName}</span>
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="${info.icon}" class="w-5 h-5 text-white/70"></i>
+                            <span class="text-xs text-white/50 hidden sm:block">${info.desc}</span>
+                        </div>
+                        <div class="flex items-center gap-3 justify-end w-full">
+                            <span class="text-xs text-white/60 w-6 text-right">${min}°</span>
+                            <div class="w-20 h-1.5 bg-white/10 rounded-full relative overflow-hidden">
+                                <div class="absolute h-full rounded-full bg-gradient-to-r from-blue-400 to-pink-400 opacity-80" 
+                                     style="left: ${Math.max(0, leftPos)}%; width: ${Math.max(10, width)}%"></div>
+                            </div>
+                            <span class="text-xs font-bold w-6">${max}°</span>
+                        </div>
+                    </div>
+                `;
+            }
+            els.dailyContainer.innerHTML = html;
+        }
+
+        function updateSunPosition(sunriseStr, sunsetStr) {
+            const now = new Date().getTime();
+            const rise = new Date(sunriseStr).getTime();
+            const set = new Date(sunsetStr).getTime();
+            
+            let pct = 0;
+            if (now > rise && now < set) {
+                pct = (now - rise) / (set - rise);
+            } else if (now >= set) {
+                pct = 1;
+            }
+
+            // Map 0-1 to SVG Path coordinates (quadratic bezier approx)
+            // Path is M10,80 Q100,10 190,80
+            // Simple interpolation for x: 10 to 190
+            const x = 10 + (pct * 180);
+            
+            // For Y, we approximate the arc (parabola)
+            // y = 4*h*(x/w)*(1-x/w) inverted? simpler: use sin
+            // 80 (bottom) -> 10 (top) -> 80 (bottom)
+            // Using a simple sin wave for height based on pct
+            const y = 80 - (Math.sin(pct * Math.PI) * 70);
+
+            els.sunPos.setAttribute('cx', x);
+            els.sunPos.setAttribute('cy', y);
+
+            // Change sun color if night
+            if (now < rise || now > set) {
+                els.sunPos.setAttribute('fill', '#94a3b8'); // Moon color
+                els.sunPos.setAttribute('class', '');
+            } else {
+                els.sunPos.setAttribute('fill', '#fbbf24');
+                els.sunPos.setAttribute('class', 'shadow-[0_0_10px_#fbbf24]');
+            }
+        }
+
+        // --- SEARCH LOGIC ---
+        function toggleSearch() {
+            els.searchOverlay.classList.toggle('translate-y-full');
+            if (!els.searchOverlay.classList.contains('translate-y-full')) {
+                els.searchInput.focus();
+            }
+        }
+
+        async function handleSearch(e) {
             e.preventDefault();
-            const val = els.searchInput.value.trim();
-            if(val) {
-                searchCity(val);
-                els.searchBar.classList.add('hidden');
-                els.searchInput.value = "";
-            }
-        });
+            const query = els.searchInput.value;
+            if (!query) return;
 
-        // Initial Load
-        searchCity("Pretoria");
+            // Geocoding API
+            try {
+                const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+                const data = await res.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const loc = data.results[0];
+                    state.lat = loc.latitude;
+                    state.lon = loc.longitude;
+                    state.city = loc.name;
+                    
+                    toggleSearch();
+                    els.searchInput.value = '';
+                    fetchWeather(); // Refresh
+                } else {
+                    alert("City not found.");
+                }
+            } catch (err) {
+                alert("Search failed.");
+            }
+        }
+
+        // --- INIT ---
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+        fetchWeather(); // Initial Load (Pretoria)
 
     </script>
 </body>
