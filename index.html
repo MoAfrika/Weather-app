@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Weather Shaman: Ultima</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
     <!-- Fonts: Outfit (Premium, Clean, Mystical) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,6 +13,10 @@
     <!-- Icons (Lucide) -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
+    <!-- Tailwind CSS (Must load BEFORE config to define the 'tailwind' object) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
             theme: {
@@ -354,26 +355,37 @@
         const canvas = document.getElementById('weather-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
+        let animationId;
         
-        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+        }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
         class Particle {
             constructor(type) { this.type = type; this.reset(); }
             reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
+                // Logic runs in logical pixels, not scaled
+                const w = canvas.width / (window.devicePixelRatio || 1);
+                const h = canvas.height / (window.devicePixelRatio || 1);
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
                 this.alpha = Math.random() * 0.5 + 0.2;
                 this.size = Math.random() * 2;
                 
                 if (this.type === 'rain') {
-                    this.y = Math.random() * canvas.height - canvas.height;
+                    this.y = Math.random() * h - h;
                     this.vy = Math.random() * 15 + 10;
                     this.vx = (Math.random() - 0.5) * 1;
                     this.len = Math.random() * 25 + 10;
                 } else if (this.type === 'snow') {
-                    this.y = Math.random() * canvas.height - canvas.height;
+                    this.y = Math.random() * h - h;
                     this.vy = Math.random() * 2 + 1;
                     this.vx = (Math.random() - 0.5) * 1;
                     this.size = Math.random() * 3 + 2;
@@ -384,14 +396,17 @@
                 }
             }
             update() {
+                const w = canvas.width / (window.devicePixelRatio || 1);
+                const h = canvas.height / (window.devicePixelRatio || 1);
+                
                 this.x += this.vx; this.y += this.vy;
                 if (this.type === 'rain' || this.type === 'snow') {
-                    if (this.y > canvas.height) this.reset();
+                    if (this.y > h) this.reset();
                 } else {
-                    if (this.x < 0) this.x = canvas.width;
-                    if (this.x > canvas.width) this.x = 0;
-                    if (this.y < 0) this.y = canvas.height;
-                    if (this.y > canvas.height) this.y = 0;
+                    if (this.x < 0) this.x = w;
+                    if (this.x > w) this.x = 0;
+                    if (this.y < 0) this.y = h;
+                    if (this.y > h) this.y = 0;
                 }
             }
             draw() {
@@ -412,10 +427,25 @@
         }
 
         function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (document.hidden) {
+                // Pause animation loop if tab is hidden
+                return;
+            }
+            const dpr = window.devicePixelRatio || 1;
+            // Clear using the scaled dimensions logic
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
             particles.forEach(p => { p.update(); p.draw(); });
-            requestAnimationFrame(animate);
+            animationId = requestAnimationFrame(animate);
         }
+        
+        // Handle Visibility Change to pause/resume animation
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                cancelAnimationFrame(animationId);
+                animate();
+            }
+        });
+        
         animate();
 
         // --- WEATHER LOGIC ---
@@ -449,7 +479,7 @@
             try {
                 const params = new URLSearchParams({
                     latitude: state.lat, longitude: state.lon,
-                    current: "temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m",
+                    current: "temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m,pressure_msl",
                     hourly: "temperature_2m,weather_code",
                     daily: "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max",
                     timezone: "auto"
@@ -517,7 +547,10 @@
 
         // --- RENDER FUNCTIONS ---
         function renderHourly(hourly, nowStr) {
-            const idx = hourly.time.findIndex(t => t >= nowStr) || 0;
+            // SAFE INDEX CALCULATION
+            let idx = hourly.time.findIndex(t => t >= nowStr);
+            if (idx === -1) idx = 0; // Fallback if time not found or end of list
+
             const temps = hourly.temperature_2m.slice(idx, idx+24);
             const codes = hourly.weather_code.slice(idx, idx+24);
             
@@ -557,12 +590,17 @@
                 }
                 const fill = `${d} L ${w} ${h} L 0 ${h} Z`;
                 
+                // Add viewBox for proper scaling
+                els.graph.setAttribute("viewBox", "0 0 1000 100");
                 els.graph.innerHTML = `
                     <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(255,255,255,0.3)"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
                     <path d="${fill}" fill="url(#g)" />
                     <path d="${d}" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="3" stroke-linecap="round"/>
                 `;
             }
+
+            // Re-render icons for new content
+            if(window.lucide) lucide.createIcons();
         }
 
         function renderDaily(daily) {
@@ -599,6 +637,9 @@
                 `;
             }
             els.dailyContainer.innerHTML = html;
+
+            // Re-render icons for new content
+            if(window.lucide) lucide.createIcons();
         }
 
         function updateSun(riseStr, setStr) {
